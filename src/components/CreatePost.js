@@ -1,35 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Form, Button, Container, Row, Col } from 'react-bootstrap';
 import { ref, set, push } from 'firebase/database';
 import { storage } from '../firebaseConfig';
 import { uploadBytes, getDownloadURL, ref as storageRef } from 'firebase/storage';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, database } from '../firebaseConfig';
+import { AuthContext } from '../AuthContext';
+import { database } from '../firebaseConfig';
 
 const CreatePost = () => {
-  const [user] = useAuthState(auth);
+  const { currentUser } = useContext(AuthContext);
   const [postText, setPostText] = useState('');
+  const [imageFiles, setImageFiles] = useState([]);
   const [error, setError] = useState('');
 
   const handleTextChange = (e) => {
     setPostText(e.target.value);
   };
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 4) {
+      setError('You can only upload up to 4 images.');
+    } else {
+      setError('');
+      setImageFiles(files);
+    }
+  };
+
   const handlePostSubmit = async (e) => {
     e.preventDefault();
-    if (!user) return;
+    if (!currentUser) return;
 
-    const postRef = push(ref(database, 'posts/' + user.uid));
+    const postRef = push(ref(database, 'posts/' + currentUser.uid));
+    const postId = postRef.key;
+
+    const imageUrls = await Promise.all(
+      imageFiles.map(async (file, index) => {
+        const fileRef = storageRef(storage, `posts/${currentUser.uid}/${postId}/${index}`);
+        await uploadBytes(fileRef, file);
+        return getDownloadURL(fileRef);
+      })
+    );
 
     const newPost = {
-      userId: user.uid,
-      username: user.displayName,
+      userId: currentUser.uid,
+      username: currentUser.displayName,
       text: postText,
+      images: imageUrls,
       timestamp: Date.now()
     };
 
     await set(postRef, newPost);
     setPostText('');
+    setImageFiles([]);
   };
 
   return (
@@ -45,7 +67,16 @@ const CreatePost = () => {
             placeholder="What's on your mind?"
           />
         </Form.Group>
-        <p />
+        <Form.Group controlId="formPostImages">
+          <Form.Label>Upload Images (up to 4)</Form.Label>
+          <Form.Control
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleFileChange}
+          />
+          {error && <p className="text-danger">{error}</p>}
+        </Form.Group>
         <Button variant="primary" type="submit">
           Post
         </Button>

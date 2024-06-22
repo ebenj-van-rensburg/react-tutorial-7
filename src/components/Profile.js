@@ -29,7 +29,7 @@ const Profile = () => {
   }, [userId]);
 
   if (!user) {
-    return <div>Loading...</div>;
+    return <div>Getting Rekt...</div>;
   }
 
   return (
@@ -52,8 +52,17 @@ const Profile = () => {
       {posts.map((post) => (
         <Card key={post.timestamp} className="mb-3">
           <Card.Body>
-            <Card.Text>{user.username}:</Card.Text>
+            <Card.Title>{user.username}:</Card.Title>
             <Card.Text>{post.text}</Card.Text>
+            {post.images && (
+              <Row>
+                {post.images.map((url, index) => (
+                  <Col key={index} xs={12} md={6}>
+                    <Image src={url} fluid />
+                  </Col>
+                ))}
+              </Row>
+            )}
             <small className="text-muted">{new Date(post.timestamp).toLocaleString()}</small>
           </Card.Body>
         </Card>
